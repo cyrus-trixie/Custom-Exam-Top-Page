@@ -11,7 +11,7 @@ import streamlit as st
 
 # === Config ===
 SCHOOL_NAME = "ST. JOSEPH’S BOYS - KITALE"
-EXAM_HEADER = "Kenya Certificate of Secondary Examinations"
+EXAM_HEADER_BASE = "Kenya Certificate of Secondary Examinations"
 
 SUBJECT_INSTRUCTIONS = {
     "Mathematics": [
@@ -60,7 +60,7 @@ SUBJECT_INSTRUCTIONS = {
 def generate_exam_number(length=10):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
-def generate_exam_pdf(subject, exam_date, duration, logo_image, instructions, include_marking_table, include_exam_number):
+def generate_exam_pdf(subject, form_level, term, exam_name, exam_date, duration, logo_image, instructions, include_marking_table, include_exam_number):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -70,19 +70,26 @@ def generate_exam_pdf(subject, exam_date, duration, logo_image, instructions, in
         logo = ImageReader(logo_image)
         c.drawImage(logo, 60, y - 10, width=60, height=60, preserveAspectRatio=True)
 
+    # Header
     c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(width / 2, y, EXAM_HEADER)
-    c.drawCentredString(width / 2, y - 20, SCHOOL_NAME)
+    c.drawCentredString(width / 2, y, SCHOOL_NAME)
 
     c.setFont("Helvetica-Bold", 13)
-    c.drawCentredString(width / 2, y - 50, subject.upper())
-    c.drawCentredString(width / 2, y - 70, f"{exam_date} – {duration}")
+    # Line with exam board + form + subject
+    header_line_2 = f"{EXAM_HEADER_BASE} - {form_level.upper()} {subject.upper()}"
+    c.drawCentredString(width / 2, y - 20, header_line_2)
+
+    # Term and exam name
+    c.drawCentredString(width / 2, y - 40, f"{term} – {exam_name}")
+
+    # Date and duration line
+    c.drawCentredString(width / 2, y - 60, f"{exam_date} - {duration}")
 
     # Student Info
     c.setFont("Helvetica", 12)
-    c.drawString(100, y - 100, "Name: _______________________")
-    c.drawString(350, y - 100, "Adm. No: _______________________")
-    c.drawString(100, y - 120, "Class: _______________________")
+    c.drawString(100, y - 100, f"Name: _______________________")
+    c.drawString(350, y - 100, f"Adm. No: _______________________")
+    c.drawString(100, y - 120, f"Class: _______________________")
     if include_exam_number:
         c.drawString(350, y - 120, f"Exam Number: {generate_exam_number()}")
 
@@ -132,7 +139,12 @@ def generate_exam_pdf(subject, exam_date, duration, logo_image, instructions, in
 st.title("Exam Top Page Generator")
 
 logo_file = st.file_uploader("Upload School Logo (optional)", type=["png", "jpg", "jpeg"])
-subject = st.text_input("Enter Subject", value="Mathematics")
+
+subject = st.text_input("Enter Subject (e.g. Physics, Mathematics)", value="Physics")
+form_level = st.text_input("Enter Form Level (e.g. Form 1, Form 2, Form 3, Form 4)", value="Form 3")
+term = st.text_input("Enter Term (e.g. Term 1, Term 2, Term 3)", value="Term 2")
+exam_name = st.text_input("Enter Exam Name (e.g. Exam 1, Exam 2, Jesma)", value="Exam 1")
+
 exam_date = st.date_input("Exam Date")
 duration = st.text_input("Exam Duration", value="2 HOURS")
 
@@ -141,7 +153,7 @@ include_marking_table = st.checkbox("Include Marking Table", value=True)
 
 # Instruction Editor
 st.markdown("### Edit Instructions Below (if needed)")
-default_instructions = SUBJECT_INSTRUCTIONS.get(subject.strip(), SUBJECT_INSTRUCTIONS["Default"])
+default_instructions = SUBJECT_INSTRUCTIONS.get(subject.title(), SUBJECT_INSTRUCTIONS["Default"])
 instructions = st.text_area("Instructions", "\n".join(default_instructions), height=200)
 instruction_lines = [line.strip() for line in instructions.strip().split("\n") if line.strip()]
 
@@ -151,7 +163,7 @@ num_pages = st.number_input("Number of Blank Pages to Generate", min_value=1, ma
 # Preview Button
 if st.button("Preview One Page"):
     st.info("Preview of one exam top page:")
-    pdf_buffer = generate_exam_pdf(subject, exam_date.strftime("%d %B %Y"), duration, logo_file, instruction_lines, include_marking_table, include_exam_number)
+    pdf_buffer = generate_exam_pdf(subject, form_level, term, exam_name, exam_date.strftime("%d %B %Y"), duration, logo_file, instruction_lines, include_marking_table, include_exam_number)
     st.download_button("Download Preview", data=pdf_buffer, file_name=f"{subject}_Top_Page_Preview.pdf", mime="application/pdf")
 
 # Bulk Generate Button
@@ -160,7 +172,7 @@ if st.button("Generate Blank Top Pages"):
         output_folder = "exam_top_pages"
         os.makedirs(output_folder, exist_ok=True)
         for i in range(num_pages):
-            pdf = generate_exam_pdf(subject, exam_date.strftime("%d %B %Y"), duration, logo_file, instruction_lines, include_marking_table, include_exam_number)
+            pdf = generate_exam_pdf(subject, form_level, term, exam_name, exam_date.strftime("%d %B %Y"), duration, logo_file, instruction_lines, include_marking_table, include_exam_number)
             with open(os.path.join(output_folder, f"{subject}_Page_{i+1}.pdf"), "wb") as f:
                 f.write(pdf.read())
 

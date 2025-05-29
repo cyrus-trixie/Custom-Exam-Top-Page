@@ -11,22 +11,29 @@ from reportlab.lib.utils import ImageReader
 import streamlit as st
 
 # === Config ===
-SCHOOL_NAME = "ST. JOSEPH’S BOYS - KITALE"
 EXAM_HEADER = "Kenya Certificate of Secondary Examinations"
 
-SUBJECT_INSTRUCTIONS = {
-    "Default": [
-        "1. Write your name and admission number clearly.",
-        "2. Answer all questions.",
-        "3. No mobile phones or unauthorized materials allowed.",
-        "4. Follow invigilator instructions."
-    ]
-}
+DEFAULT_INSTRUCTIONS = [
+    "1. Write your name and admission number clearly.",
+    "2. Answer all questions.",
+    "3. No mobile phones or unauthorized materials allowed.",
+    "4. Follow invigilator instructions."
+]
+
+DEFAULT_MARKING_TABLE = [
+    {"SECTION": "A", "QUESTION": "1 – 11", "MAXIMUM SCORE": 25, "CANDIDATE’S SCORE": ""},
+    {"SECTION": "B", "QUESTION": "12", "MAXIMUM SCORE": 11, "CANDIDATE’S SCORE": ""},
+    {"SECTION": "", "QUESTION": "13", "MAXIMUM SCORE": 11, "CANDIDATE’S SCORE": ""},
+    {"SECTION": "", "QUESTION": "14", "MAXIMUM SCORE": 11, "CANDIDATE’S SCORE": ""},
+    {"SECTION": "", "QUESTION": "15", "MAXIMUM SCORE": 10, "CANDIDATE’S SCORE": ""},
+    {"SECTION": "", "QUESTION": "16", "MAXIMUM SCORE": 12, "CANDIDATE’S SCORE": ""},
+    {"SECTION": "", "QUESTION": "TOTAL SCORE", "MAXIMUM SCORE": 80, "CANDIDATE’S SCORE": ""},
+]
 
 def generate_exam_number(length=10):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
-def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_name, exam_date, duration, logo_image, instructions, include_marking_table, include_exam_number):
+def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_name, exam_date, duration, logo_image, instructions, include_marking_table, include_exam_number, school_name, marking_table_data):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -40,7 +47,7 @@ def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_na
     c.drawCentredString(width / 2, y, EXAM_HEADER)
 
     c.setFont("Helvetica-Bold", 13)
-    c.drawCentredString(width / 2, y - 20, SCHOOL_NAME)
+    c.drawCentredString(width / 2, y - 20, school_name.upper())
     c.drawCentredString(width / 2, y - 40, f"{form.upper()} {subject.upper()}")
     c.drawCentredString(width / 2, y - 60, f"{term} – {exam_name}")
     c.drawCentredString(width / 2, y - 80, f"{exam_date} - {duration}")
@@ -66,16 +73,14 @@ def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_na
         c.drawString(100, iy, "For examiners use only")
         iy -= 25
 
-        table_data = [
-            ["SECTION", "QUESTION", "MAXIMUM SCORE", "CANDIDATE’S SCORE"],
-            ["A", "1 – 11", "25", ""],
-            ["B", "12", "11", ""],
-            ["", "13", "11", ""],
-            ["", "14", "11", ""],
-            ["", "15", "10", ""],
-            ["", "16", "12", ""],
-            ["", "TOTAL SCORE", "80", ""]
-        ]
+        table_data = [["SECTION", "QUESTION", "MAXIMUM SCORE", "CANDIDATE’S SCORE"]]
+        for row in marking_table_data:
+            table_data.append([
+                row["SECTION"],
+                row["QUESTION"],
+                str(row["MAXIMUM SCORE"]),
+                str(row["CANDIDATE’S SCORE"])
+            ])
 
         x_start = 100
         col_widths = [80, 120, 120, 150]
@@ -96,6 +101,8 @@ def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_na
 # === Streamlit UI ===
 st.title("Student Customized Exam Top Page Generator")
 
+school_name = st.text_input("Enter School Name", value="ST. JOSEPH’S BOYS - KITALE")
+
 student_file = st.file_uploader("Upload Excel File with Student Data", type=["xlsx"])
 logo_file = st.file_uploader("Upload School Logo (optional)", type=["png", "jpg", "jpeg"])
 
@@ -110,8 +117,16 @@ include_exam_number = st.checkbox("Include Exam Number", value=True)
 include_marking_table = st.checkbox("Include Marking Table", value=True)
 
 st.markdown("### Edit Instructions")
-instructions = st.text_area("Instructions", "\n".join(SUBJECT_INSTRUCTIONS["Default"]), height=200)
+instructions = st.text_area("Instructions", "\n".join(DEFAULT_INSTRUCTIONS), height=200)
 instruction_lines = [line.strip() for line in instructions.strip().split("\n") if line.strip()]
+
+st.markdown("### Edit Marking Table")
+marking_table_data = st.data_editor(
+    pd.DataFrame(DEFAULT_MARKING_TABLE),
+    use_container_width=True,
+    num_rows="dynamic",
+    key="marking_editor"
+)
 
 if st.button("Generate Personalized PDFs"):
     if student_file is None:
@@ -149,7 +164,9 @@ if st.button("Generate Personalized PDFs"):
                         logo_file,
                         instruction_lines,
                         include_marking_table,
-                        include_exam_number
+                        include_exam_number,
+                        school_name,
+                        marking_table_data.to_dict("records")
                     )
 
                     safe_name = student_name.replace(" ", "_").replace("/", "_")

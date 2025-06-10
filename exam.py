@@ -5,9 +5,11 @@ import shutil
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape # Import landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
+from reportlab.platypus import Table, TableStyle # Import Table and TableStyle
+from reportlab.lib import colors # Import colors for table borders
 import streamlit as st
 
 # === Config ===
@@ -35,7 +37,9 @@ def generate_exam_number(length=10):
 
 def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_name, exam_date, duration, logo_image, instructions, include_marking_table, include_exam_number, school_name, marking_table_data):
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
+    # Use landscape mode for the page if the table is wide
+    # For a table that fits A4 portrait, A4 is fine. If it's too wide, consider A4, landscape
+    c = canvas.Canvas(buffer, pagesize=A4) # A4 is portrait by default
     width, height = A4
     y = height - 80
 
@@ -73,6 +77,7 @@ def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_na
         c.drawString(100, iy, "For examiners use only")
         iy -= 25
 
+        # Prepare table data for ReportLab's Table
         table_data = [["SECTION", "QUESTION", "MAXIMUM SCORE", "CANDIDATE’S SCORE"]]
         for row in marking_table_data:
             table_data.append([
@@ -82,17 +87,30 @@ def generate_exam_pdf(student_name, adm_no, stream, form, subject, term, exam_na
                 str(row["CANDIDATE’S SCORE"])
             ])
 
-        x_start = 100
-        col_widths = [80, 120, 120, 150]
-        row_height = 25
-        c.setFont("Helvetica", 10)
+        # Create the Table object
+        # The width can be adjusted based on desired fit
+        # A4 width is 595.27 units. We can set a total width and let it distribute or specify column widths.
+        # Let's aim for a table width that fits within the margins.
+        # The default width is 450 units, which is a good starting point.
+        table = Table(table_data, colWidths=[80, 120, 120, 150]) # You can adjust these widths
 
-        for i, row in enumerate(table_data):
-            row_y = iy - (i * row_height)
-            for j, cell in enumerate(row):
-                x = x_start + sum(col_widths[:j])
-                c.rect(x, row_y, col_widths[j], row_height, stroke=1, fill=0)
-                c.drawString(x + 5, row_y + 7, str(cell))
+        # Define table style
+        table_style = TableStyle([
+            ('GRID', (0,0), (-1,-1), 1, colors.black), # All borders
+            ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), # Header background
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), # Header font
+            ('FONTSIZE', (0,0), (-1,-1), 10), # All cell font size
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'), # Center align all cells
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # Middle vertical align
+        ])
+        table.setStyle(table_style)
+
+        # Calculate table size and draw it
+        table_width, table_height = table.wrapOn(c, width, height)
+        
+        # Position the table: centered horizontally, below instructions
+        x_position = (width - table_width) / 2 # Center the table
+        table.drawOn(c, x_position, iy - table_height) # Draw the table
 
     c.save()
     buffer.seek(0)

@@ -124,6 +124,16 @@ def generate_exam_pdf(
     sig_label_width = c.stringWidth("Candidate's Signature:", "Helvetica", 11)
     # Draw dashed line for signature
     c.line(line_start_x_right_section + sig_label_width + 5, current_y - 2, line_end_x_right_section, current_y - 2)
+    
+    # NEW: Stream
+    current_y -= 20 # Move down for Stream
+    c.drawString(line_start_x_left_section, current_y, "Stream:")
+    stream_label_width = c.stringWidth("Stream:", "Helvetica", 11)
+    # Draw dashed line for stream
+    c.line(line_start_x_left_section + stream_label_width + 5, current_y - 2, line_end_x_left_section, current_y - 2)
+    # Draw stream over the dashed line ONLY if prefill_student_details is True
+    if prefill_student_details:
+        c.drawString(line_start_x_left_section + stream_label_width + 5, current_y, stream)
 
     # Date
     current_y -= 20 
@@ -313,7 +323,7 @@ duration = st.text_input("Exam Duration", value="2 HOURS")
 
 st.subheader("Page Options")
 # New checkbox for pre-filling student details
-prefill_student_details = st.checkbox("Pre-fill student name and index number", value=True, help="If checked, names and index numbers from your Excel file will be printed. If unchecked, lines will be provided for students to write them in.")
+prefill_student_details = st.checkbox("Pre-fill student name, index number, and stream", value=True, help="If checked, names, index numbers, and streams from your Excel file will be printed. If unchecked, lines will be provided for students to write them in.")
 include_exam_number = st.checkbox("Include an Exam Number on the page", value=True)
 include_marking_table = st.checkbox("Include a Marking Table (for examiners)", value=True)
 
@@ -378,7 +388,7 @@ if st.button("Generate Personalized PDFs", key="generate_pdfs_button"):
                     Please make sure your file has columns named something like:
                     - 'Name' (for student names)
                     - 'Admission No.' or 'Adm' or 'Index No.' (for index numbers)
-                    If you also have a 'Stream' column, it will be used.
+                    - 'Stream' (for student streams)
                     Double-check your Excel file and try again!
                 """)
             else:

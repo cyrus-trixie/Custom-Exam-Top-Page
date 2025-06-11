@@ -37,15 +37,184 @@ DEFAULT_INCLUDE_GRAND_TOTAL = True
 # Default scale for the new complex table - Increased slightly for better default width
 DEFAULT_TABLE_SCALE = 1.1 # 1.0 means original size, 1.1 means 10% larger, 0.9 means 10% smaller
 
+# Default data for the custom marking table
+DEFAULT_CUSTOM_TABLE_DATA = pd.DataFrame([
+    {"Section": "A", "Question": "1 - 11", "Maximum Score": 25},
+    {"Section": "B", "Question": "12", "Maximum Score": 11},
+    {"Section": "B", "Question": "13", "Maximum Score": 11},
+    {"Section": "B", "Question": "14", "Maximum Score": 11},
+    {"Section": "B", "Question": "15", "Maximum Score": 10},
+    {"Section": "B", "Question": "16", "Maximum Score": 12},
+    {"Section": "TOTAL SCORE", "Question": "", "Maximum Score": 80},
+])
+
 def generate_exam_number(length=10):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
+def draw_kcse_standard_marking_table(c, examiner_text_y, table_scale, width, height,
+                                       section_1_questions, section_2_questions,
+                                       section_1_title, section_2_title, include_grand_total):
+    styles = getSampleStyleSheet()
+    normal_style = styles['Normal']
+    normal_style.fontSize = 9
+
+    # --- Table Dimensions ---
+    q_cell_width = 20 * table_scale
+    total_cell_width = 30 * table_scale
+    gt_label_width = 40 * table_scale
+    gt_score_width = 60 * table_scale
+    row_height = 25 * table_scale 
+    
+    # --- Table 1: Section I ---
+    col_widths_s1 = [q_cell_width] * section_1_questions + [total_cell_width]
+    
+    table_data_s1 = [
+        [section_1_title] + [''] * section_1_questions,
+        [str(i) for i in range(1, section_1_questions + 1)] + ['Total'],
+        [''] * (section_1_questions + 1)
+    ]
+    
+    table_s1 = Table(table_data_s1, colWidths=col_widths_s1, rowHeights=row_height)
+    table_s1_style = TableStyle([
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('SPAN', (0,0), (section_1_questions,0)),
+        ('BACKGROUND', (0,0), (section_1_questions,0), colors.lightgrey),
+        ('FONTNAME', (0,0), (section_1_questions,0), 'Helvetica-Bold'),
+        ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
+    ])
+    table_s1.setStyle(table_s1_style)
+
+    table_x_position = 60
+    table_s1_width, table_s1_height = table_s1.wrapOn(c, width, height)
+    table_s1_y_position = examiner_text_y - table_s1_height - 10 # Add 10 points space below 'For Examiner's Use Only'
+    table_s1.drawOn(c, table_x_position, table_s1_y_position)
+
+    # --- Table 2: Section II ---
+    sec2_q_start = section_1_questions + 1
+    sec2_q_end = sec2_q_start + section_2_questions - 1
+
+    col_widths_s2 = [q_cell_width] * section_2_questions + [total_cell_width]
+
+    table_data_s2 = [
+        [section_2_title] + [''] * section_2_questions,
+        [str(i) for i in range(sec2_q_start, sec2_q_end + 1)] + ['Total'],
+        [''] * (section_2_questions + 1)
+    ]
+
+    table_s2 = Table(table_data_s2, colWidths=col_widths_s2, rowHeights=row_height)
+    table_s2_style = TableStyle([
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('SPAN', (0,0), (section_2_questions,0)),
+        ('BACKGROUND', (0,0), (section_2_questions,0), colors.lightgrey),
+        ('FONTNAME', (0,0), (section_2_questions,0), 'Helvetica-Bold'),
+        ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
+    ])
+    table_s2.setStyle(table_s2_style)
+
+    table_s2_width, table_s2_height = table_s2.wrapOn(c, width, height)
+    # Add 15 points space between Section I and Section II tables
+    table_s2_y_position = table_s1_y_position - table_s2_height - 15 
+    table_s2.drawOn(c, table_x_position, table_s2_y_position)
+
+    # --- Table 3: Grand Total (if included) ---
+    if include_grand_total:
+        col_widths_gt = [gt_label_width, gt_score_width]
+        
+        table_data_gt = [
+            ['GRAND', ''],
+            ['TOTAL', ''],
+            ['', '']
+        ]
+
+        table_gt = Table(table_data_gt, colWidths=col_widths_gt, rowHeights=[row_height, row_height, row_height])
+        table_gt_style = TableStyle([
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('SPAN', (0,0), (0,1)), # 'GRAND' and 'TOTAL' label vertical span
+            ('SPAN', (1,0), (1,2)), # Grand Total score box vertical span
+            ('FONTNAME', (0,0), (0,1), 'Helvetica-Bold'),
+        ])
+        table_gt.setStyle(table_gt_style)
+
+        table_gt_width, table_gt_height = table_gt.wrapOn(c, width, height)
+        
+        # Position it to the right of Section II table, aligned at its top edge
+        table_gt_x_position = table_x_position + table_s2_width + 10 
+        table_gt_y_position = table_s2_y_position # Align tops of Section II and Grand Total tables
+        table_gt.drawOn(c, table_gt_x_position, table_gt_y_position)
+
+    # Return the lowest Y position used by the tables
+    return table_s2_y_position # or table_gt_y_position if it extends lower
+
+def draw_custom_marking_table(c, custom_table_df, examiner_text_y, table_scale, width, height):
+    styles = getSampleStyleSheet()
+    normal_style = styles['Normal']
+    normal_style.fontSize = 9
+
+    # Header for the custom table
+    table_header = ["SECTION", "QUESTION", "MAXIMUM SCORE", "CANDIDATE'S SCORE"]
+    
+    table_rows = []
+    # Add header
+    table_rows.append(table_header)
+
+    # Add data rows
+    for index, row in custom_table_df.iterrows():
+        section_val = str(row.get("Section", "")).strip()
+        question_val = str(row.get("Question", "")).strip()
+        max_score_val = str(row.get("Maximum Score", "")).strip()
+        table_rows.append([section_val, question_val, max_score_val, '']) # Candidate's score is empty
+
+    # Column widths can be dynamic based on content or fixed for better appearance
+    # Adjusted widths to better fit the example image
+    col_widths = [80 * table_scale, 80 * table_scale, 60 * table_scale, 80 * table_scale]
+    row_height = 25 * table_scale
+
+    table = Table(table_rows, colWidths=col_widths, rowHeights=row_height)
+    
+    table_style_list = [
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), # Header background
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), # Header font bold
+    ]
+
+    # Apply specific styles for "TOTAL SCORE" row
+    for i, row_data in enumerate(table_rows):
+        if i > 0 and row_data[0].upper() == "TOTAL SCORE": # Check the 'Section' column for 'TOTAL SCORE'
+            # Span 'SECTION' and 'QUESTION' cells for 'TOTAL SCORE' row
+            table_style_list.append(('SPAN', (0, i), (1, i)))
+            table_style_list.append(('ALIGN', (0, i), (1, i), 'CENTER')) # Center merged cell
+            table_style_list.append(('FONTNAME', (0, i), (-1, i), 'Helvetica-Bold')) # Bold total row
+            table_style_list.append(('ALIGN', (2, i), (2, i), 'RIGHT')) # Align max score to right
+
+    table.setStyle(TableStyle(table_style_list))
+
+    table_x_position = 60
+    table_width, table_height = table.wrapOn(c, width, height)
+    table_y_position = examiner_text_y - table_height - 10 # Add 10 points space below 'For Examiner's Use Only'
+    table.drawOn(c, table_x_position, table_y_position)
+
+    return table_y_position # Return the lowest Y position used by the table
+
+
 def generate_exam_pdf(
     student_name, adm_no, stream, form, subject, term, exam_name, exam_date,
-    duration, logo_image, raw_instructions, include_marking_table, include_exam_number,
+    duration, logo_image, raw_instructions, marking_table_style, include_exam_number,
     school_name, paper_code, total_pages_count, table_scale,
     section_1_questions, section_2_questions, section_1_title, section_2_title, include_grand_total,
-    prefill_student_details # New parameter
+    custom_table_df, # New parameter for custom table data
+    prefill_student_details 
 ):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -125,8 +294,8 @@ def generate_exam_pdf(
     # Draw dashed line for signature
     c.line(line_start_x_right_section + sig_label_width + 5, current_y - 2, line_end_x_right_section, current_y - 2)
     
-    # NEW: Stream
-    current_y -= 20 # Move down for Stream
+    # Stream
+    current_y -= 20 
     c.drawString(line_start_x_left_section, current_y, "Stream:")
     stream_label_width = c.stringWidth("Stream:", "Helvetica", 11)
     # Draw dashed line for stream
@@ -188,110 +357,23 @@ def generate_exam_pdf(
         p.drawOn(c, 60, iy - p_height) # Draw paragraph at current y, adjusted for its height
         iy -= (p_height + 8) # Move y down for next paragraph, adding 8 points extra space
 
-    # Removed: "This paper consists of X printed pages."
 
     # --- For Examiner's Use Only Table ---
-    if include_marking_table:
-        styles = getSampleStyleSheet()
-        normal_style = styles['Normal']
-        normal_style.fontSize = 9
-
+    if marking_table_style != "None": # Only draw if a marking table style is selected
         c.setFont("Helvetica-Bold", 12)
         examiner_text_y = iy - 20 # Adjusted vertical spacing from instructions
         c.drawString(60, examiner_text_y, "For Examiner's Use Only")
 
-        # --- Table Dimensions ---
-        q_cell_width = 20 * table_scale
-        total_cell_width = 30 * table_scale
-        gt_label_width = 40 * table_scale
-        gt_score_width = 60 * table_scale
-        row_height = 25 * table_scale 
-        
-        # --- Table 1: Section I ---
-        col_widths_s1 = [q_cell_width] * section_1_questions + [total_cell_width]
-        
-        table_data_s1 = [
-            [section_1_title] + [''] * section_1_questions,
-            [str(i) for i in range(1, section_1_questions + 1)] + ['Total'],
-            [''] * (section_1_questions + 1)
-        ]
-        
-        table_s1 = Table(table_data_s1, colWidths=col_widths_s1, rowHeights=row_height)
-        table_s1_style = TableStyle([
-            ('GRID', (0,0), (-1,-1), 1, colors.black),
-            ('FONTSIZE', (0,0), (-1,-1), 9),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('SPAN', (0,0), (section_1_questions,0)),
-            ('BACKGROUND', (0,0), (section_1_questions,0), colors.lightgrey),
-            ('FONTNAME', (0,0), (section_1_questions,0), 'Helvetica-Bold'),
-            ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
-        ])
-        table_s1.setStyle(table_s1_style)
+        if marking_table_style == "K.C.S.E. Standard (Section I, Section II, Grand Total)":
+            draw_kcse_standard_marking_table(c, examiner_text_y, table_scale, width, height,
+                                              section_1_questions, section_2_questions,
+                                              section_1_title, section_2_title, include_grand_total)
+        elif marking_table_style == "Customized Score Sheet":
+            if custom_table_df is not None and not custom_table_df.empty:
+                draw_custom_marking_table(c, custom_table_df, examiner_text_y, table_scale, width, height)
+            else:
+                st.warning("No data provided for custom marking table. Skipping table generation.")
 
-        table_x_position = 60
-        table_s1_width, table_s1_height = table_s1.wrapOn(c, width, height)
-        table_s1_y_position = examiner_text_y - table_s1_height - 10 # Add 10 points space below 'For Examiner's Use Only'
-        table_s1.drawOn(c, table_x_position, table_s1_y_position)
-
-        # --- Table 2: Section II ---
-        sec2_q_start = section_1_questions + 1
-        sec2_q_end = sec2_q_start + section_2_questions - 1
-
-        col_widths_s2 = [q_cell_width] * section_2_questions + [total_cell_width]
-
-        table_data_s2 = [
-            [section_2_title] + [''] * section_2_questions,
-            [str(i) for i in range(sec2_q_start, sec2_q_end + 1)] + ['Total'],
-            [''] * (section_2_questions + 1)
-        ]
-
-        table_s2 = Table(table_data_s2, colWidths=col_widths_s2, rowHeights=row_height)
-        table_s2_style = TableStyle([
-            ('GRID', (0,0), (-1,-1), 1, colors.black),
-            ('FONTSIZE', (0,0), (-1,-1), 9),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('SPAN', (0,0), (section_2_questions,0)),
-            ('BACKGROUND', (0,0), (section_2_questions,0), colors.lightgrey),
-            ('FONTNAME', (0,0), (section_2_questions,0), 'Helvetica-Bold'),
-            ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
-        ])
-        table_s2.setStyle(table_s2_style)
-
-        table_s2_width, table_s2_height = table_s2.wrapOn(c, width, height)
-        # Add 15 points space between Section I and Section II tables
-        table_s2_y_position = table_s1_y_position - table_s2_height - 15 
-        table_s2.drawOn(c, table_x_position, table_s2_y_position)
-
-        # --- Table 3: Grand Total (if included) ---
-        if include_grand_total:
-            col_widths_gt = [gt_label_width, gt_score_width]
-            
-            table_data_gt = [
-                ['GRAND', ''],
-                ['TOTAL', ''],
-                ['', '']
-            ]
-
-            table_gt = Table(table_data_gt, colWidths=col_widths_gt, rowHeights=[row_height, row_height, row_height])
-            table_gt_style = TableStyle([
-                ('GRID', (0,0), (-1,-1), 1, colors.black),
-                ('FONTSIZE', (0,0), (-1,-1), 9),
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('SPAN', (0,0), (0,1)), # 'GRAND' and 'TOTAL' label vertical span
-                ('SPAN', (1,0), (1,2)), # Grand Total score box vertical span
-                ('FONTNAME', (0,0), (0,1), 'Helvetica-Bold'),
-            ])
-            table_gt.setStyle(table_gt_style)
-
-            table_gt_width, table_gt_height = table_gt.wrapOn(c, width, height)
-            
-            # Position it to the right of Section II table, aligned at its top edge
-            table_gt_x_position = table_x_position + table_s2_width + 10 
-            table_gt_y_position = table_s2_y_position # Align tops of Section II and Grand Total tables
-            table_gt.drawOn(c, table_gt_x_position, table_gt_y_position)
 
     c.save()
     buffer.seek(0)
@@ -322,10 +404,8 @@ exam_date = st.date_input("Exam Date", value=datetime.now())
 duration = st.text_input("Exam Duration", value="2 HOURS")
 
 st.subheader("Page Options")
-# New checkbox for pre-filling student details
 prefill_student_details = st.checkbox("Pre-fill student name, index number, and stream", value=True, help="If checked, names, index numbers, and streams from your Excel file will be printed. If unchecked, lines will be provided for students to write them in.")
 include_exam_number = st.checkbox("Include an Exam Number on the page", value=True)
-include_marking_table = st.checkbox("Include a Marking Table (for examiners)", value=True)
 
 st.markdown("---")
 
@@ -336,34 +416,70 @@ instruction_lines = [line.strip() for line in instructions.strip().split("\n") i
 st.markdown("---")
 
 st.header("Customize Marking Table (Examiner's Use Only)")
-st.markdown("""
-    This section lets you define the structure of the 'For Examiner's Use Only' table on the exam paper.
-    It's designed to match the specific layout from your example image (Section I on top, Section II below it, Grand Total to the right).
-""")
 
-# Table Customization Inputs
-section_1_title = st.text_input("Section I Title:", value=DEFAULT_SECTION_1_TITLE)
-section_1_questions = st.number_input(
-    "Number of Questions in Section I (e.g., 16):",
-    min_value=1, value=DEFAULT_SECTION_1_QNS, step=1,
-    help="This defines the number of columns for questions in Section I."
+marking_table_style = st.radio(
+    "Choose Marking Table Style:",
+    ("K.C.S.E. Standard (Section I, Section II, Grand Total)", "Customized Score Sheet", "None"),
+    index=0, # Default to K.C.S.E. Standard
+    help="Select the layout for the 'For Examiner's Use Only' table."
 )
 
-section_2_title = st.text_input("Section II Title:", value=DEFAULT_SECTION_2_TITLE)
-section_2_questions = st.number_input(
-    "Number of Questions in Section II (e.g., 8):",
-    min_value=1, value=DEFAULT_SECTION_2_QNS, step=1,
-    help="This defines the number of columns for questions in Section II."
-)
+section_1_questions = DEFAULT_SECTION_1_QNS
+section_2_questions = DEFAULT_SECTION_2_QNS
+section_1_title = DEFAULT_SECTION_1_TITLE
+section_2_title = DEFAULT_SECTION_2_TITLE
+include_grand_total = DEFAULT_INCLUDE_GRAND_TOTAL
+custom_table_df = None # Initialize to None
 
-include_grand_total = st.checkbox("Include 'Grand Total' Section", value=DEFAULT_INCLUDE_GRAND_TOTAL)
+if marking_table_style == "K.C.S.E. Standard (Section I, Section II, Grand Total)":
+    st.markdown("""
+        This option generates the standard K.C.S.E. style marking table with separate sections and an optional grand total.
+    """)
+    section_1_title = st.text_input("Section I Title:", value=DEFAULT_SECTION_1_TITLE, key="s1_title_kcse")
+    section_1_questions = st.number_input(
+        "Number of Questions in Section I (e.g., 16):",
+        min_value=1, value=DEFAULT_SECTION_1_QNS, step=1, key="s1_qns_kcse",
+        help="This defines the number of columns for questions in Section I."
+    )
 
-# Table Size Scale
+    section_2_title = st.text_input("Section II Title:", value=DEFAULT_SECTION_2_TITLE, key="s2_title_kcse")
+    section_2_questions = st.number_input(
+        "Number of Questions in Section II (e.g., 8):",
+        min_value=1, value=DEFAULT_SECTION_2_QNS, step=1, key="s2_qns_kcse",
+        help="This defines the number of columns for questions in Section II."
+    )
+
+    include_grand_total = st.checkbox("Include 'Grand Total' Section", value=DEFAULT_INCLUDE_GRAND_TOTAL, key="include_gt_kcse")
+
+elif marking_table_style == "Customized Score Sheet":
+    st.markdown("""
+        Create a fully customized marking table by editing the rows below.
+        Add/delete rows and fill in 'Section', 'Question', and 'Maximum Score'.
+        The 'Candidate's Score' column will be automatically added as empty.
+    """)
+    
+    # Use st.data_editor for interactive table editing
+    custom_table_df = st.data_editor(
+        DEFAULT_CUSTOM_TABLE_DATA,
+        column_config={
+            "Section": st.column_config.TextColumn("Section", help="e.g., A, B, or SECTION I"),
+            "Question": st.column_config.TextColumn("Question", help="e.g., 1-11, 12, or TOTAL SCORE"),
+            "Maximum Score": st.column_config.NumberColumn("Maximum Score", help="Points for this question/section"),
+        },
+        num_rows="dynamic",
+        key="custom_marking_table_editor"
+    )
+    # Ensure custom_table_df is not None if data_editor is used
+    if custom_table_df.empty:
+        st.warning("Please add rows to your custom marking table.")
+
+
+# Table Size Scale (applies to both types)
 table_scale = st.slider(
     "Adjust Table Size (Overall Scale)",
     min_value=0.5,
     max_value=1.5,
-    value=DEFAULT_TABLE_SCALE, # Now set to 1.1 by default
+    value=DEFAULT_TABLE_SCALE,
     step=0.05,
     help="Drag the slider to make the entire marking table larger or smaller on the page. This adjusts all its cells uniformly."
 )
@@ -373,6 +489,8 @@ st.markdown("---")
 if st.button("Generate Personalized PDFs", key="generate_pdfs_button"):
     if student_file is None:
         st.error("Oops! Please upload an Excel file with your student data before generating PDFs.")
+    elif marking_table_style == "Customized Score Sheet" and (custom_table_df is None or custom_table_df.empty):
+        st.error("Please add some data to your 'Customized Score Sheet' marking table or select another style.")
     else:
         with st.spinner("Generating PDFs... This might take a moment if you have many students."):
             df = pd.read_excel(student_file)
@@ -403,29 +521,30 @@ if st.button("Generate Personalized PDFs", key="generate_pdfs_button"):
                     stream = str(row.get(stream_col, "N/A")).strip() if stream_col else "N/A"
 
                     pdf = generate_exam_pdf(
-                        student_name,
-                        adm_no,
-                        stream,
-                        form,
-                        subject,
-                        term,
-                        exam_name,
-                        datetime.strftime(exam_date, "%d %B %Y"),
-                        duration,
-                        logo_file,
-                        instruction_lines, # Passed as raw_instructions
-                        include_marking_table,
-                        include_exam_number,
-                        school_name,
-                        paper_code,
-                        total_pages_count=1, # Dummy value as text is removed
+                        student_name=student_name,
+                        adm_no=adm_no,
+                        stream=stream,
+                        form=form,
+                        subject=subject,
+                        term=term,
+                        exam_name=exam_name,
+                        exam_date=datetime.strftime(exam_date, "%d %B %Y"),
+                        duration=duration,
+                        logo_image=logo_file,
+                        raw_instructions=instruction_lines,
+                        marking_table_style=marking_table_style, # Pass the chosen style
+                        include_exam_number=include_exam_number,
+                        school_name=school_name,
+                        paper_code=paper_code,
+                        total_pages_count=1,
                         table_scale=table_scale,
                         section_1_questions=section_1_questions,
                         section_2_questions=section_2_questions,
                         section_1_title=section_1_title,
                         section_2_title=section_2_title,
                         include_grand_total=include_grand_total,
-                        prefill_student_details=prefill_student_details # Pass the new option
+                        custom_table_df=custom_table_df, # Pass custom table data
+                        prefill_student_details=prefill_student_details
                     )
 
                     safe_name = student_name.replace(" ", "_").replace("/", "_").replace("\\", "_")
